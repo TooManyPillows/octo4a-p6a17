@@ -1,6 +1,9 @@
 project(Octo4a)
 cmake_minimum_required(VERSION 3.4.1)
 
+# Align segments to 16 KB so the libraries load on 16 KB page devices (Android 15+)
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
+
 add_library(vsp-pty SHARED
             vsp-pty.cpp openpty.c)
 
