@@ -30,6 +30,8 @@ interface BootstrapRepository {
     val isBootstrapInstallItemSelected: Boolean
     suspend fun downloadBootstrap()
     suspend fun extractBootstrap()
+    suspend fun setupBootstrap()
+    fun markSetupComplete()
     fun runCommand(
         command: String,
         prooted: Boolean = true,
@@ -43,6 +45,7 @@ interface BootstrapRepository {
     fun selectReleaseForInstallation(release: BootstrapItem)
 
     val isBootstrapInstalled: Boolean
+    val hasSetupMarker: Boolean
     val isSSHConfigured: Boolean
     val bootstrapVersion: String
 }
@@ -56,6 +59,8 @@ class BootstrapRepositoryImpl(
         private val FILES_PATH = "/data/data/com.octo4a/files"
         val PREFIX_PATH = "$FILES_PATH/bootstrap"
         val HOME_PATH = "$FILES_PATH"
+        // Written only after every installation step has succeeded
+        private val SETUP_MARKER_PATH = "$PREFIX_PATH/.setup-complete"
     }
 
     val filesPath: String by lazy { context.getExternalFilesDir(null).absolutePath }
@@ -186,6 +191,11 @@ class BootstrapRepositoryImpl(
 
             // First call inside of proot will automatically extract the bootstrap
             runCommand("ls").waitAndPrintOutput(logger)
+        }
+    }
+
+    override suspend fun setupBootstrap() {
+        withContext(Dispatchers.IO) {
             logger.log(this) { "Bootstrap extracted, setting it up..." }
 
             runCommand("chmod -R 755 /mnt/external/").waitAndPrintOutput(
@@ -301,4 +311,11 @@ class BootstrapRepositoryImpl(
 
     override val isBootstrapInstalled: Boolean
         get() = File("$FILES_PATH/bootstrap/bootstrap").exists()
+
+    override val hasSetupMarker: Boolean
+        get() = File(SETUP_MARKER_PATH).exists()
+
+    override fun markSetupComplete() {
+        File(SETUP_MARKER_PATH).createNewFile()
+    }
 }

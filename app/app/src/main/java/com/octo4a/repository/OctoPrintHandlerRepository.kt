@@ -132,12 +132,17 @@ class OctoPrintHandlerRepositoryImpl(
                     bootstrapRepository.downloadBootstrap()
                     _serverState.emit(ServerStatus.ExtractingBootstrap)
                     bootstrapRepository.extractBootstrap()
+                    finishSetup()
                     logger.log { "Bootstrap installed" }
                     _serverState.emit(ServerStatus.BootingUp)
-                    insertInitialConfig()
                     startOctoPrint()
                     logger.log { "Dependencies installed" }
                 } else {
+                    if (!isSetupComplete) {
+                        // A previous installation was interrupted after extracting the bootstrap
+                        logger.log { "Bootstrap setup was not completed, finishing it" }
+                        finishSetup()
+                    }
                     getExtrasStatus()
                     startOctoPrint()
                     if (preferences.enableSSH) {
@@ -297,27 +302,46 @@ class OctoPrintHandlerRepositoryImpl(
         _usbDeviceStatus.value = UsbDeviceStatus(false)
     }
 
+    // Installs made before the setup marker existed are recognized by octo4a's serial port in the config
+    private val isSetupComplete: Boolean
+        get() = bootstrapRepository.hasSetupMarker ||
+                (configFile.exists() && configFile.readText().contains("/dev/ttyOcto4a"))
+
+    private suspend fun finishSetup() {
+        bootstrapRepository.setupBootstrap()
+        insertInitialConfig()
+        bootstrapRepository.markSetupComplete()
+    }
+
     private fun insertInitialConfig() {
         bootstrapRepository.ensureHomeDirectory()
         val map = getConfig()
-        map["webcam"] = mapOf(
+        map.mergeSection("webcam", mapOf(
             "stream" to "http://${context.ipAddress}:5001/mjpeg",
             "ffmpeg" to "/usr/bin/ffmpeg",
             "snapshot" to "http://localhost:5001/snapshot"
-        )
-        map["serial"] = mapOf(
+        ))
+        map.mergeSection("serial", mapOf(
             "autorefresh" to false,
             "exclusive" to false,
             "additionalPorts" to listOf("/dev/ttyOcto4a")
-        )
-        map["server"] = mapOf(
-            "commands" to mapOf(
+        ))
+        val serverSection = map["server"] as? Map<String, Any> ?: emptyMap()
+        val existingCommands = serverSection["commands"] as? Map<String, Any> ?: emptyMap()
+        map.mergeSection("server", mapOf(
+            "commands" to existingCommands + mapOf(
                 "serverRestartCommand" to "echo \"{\\\"eventType\\\": \\\"restartServer\\\"}\" > /eventPipe",
                 "systemShutdownCommand" to "echo \"{\\\"eventType\\\": \\\"stopServer\\\"}\" > /eventPipe"
             )
-        )
+        ))
 
         saveConfig(map)
+    }
+
+    // Merges @values into an existing config section, so settings OctoPrint already wrote there are kept
+    private fun MutableMap<String, Any>.mergeSection(key: String, values: Map<String, Any>) {
+        val existing = this[key] as? Map<String, Any> ?: emptyMap()
+        this[key] = existing + values
     }
 
     private fun getConfig(): MutableMap<String, Any> {
