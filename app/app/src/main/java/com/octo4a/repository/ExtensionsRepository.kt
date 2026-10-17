@@ -209,7 +209,8 @@ class ExtensionsRepositoryImpl(
         val validExtensions = mutableListOf<RegisteredExtension>()
 
         val f = File(extensionsPath)
-        val files = f.listFiles()
+        // listFiles() returns null when the extensions folder doesn't exist yet
+        val files = f.listFiles() ?: emptyArray()
         for (inFile in files) {
             if (inFile.isDirectory) {
                 try {
