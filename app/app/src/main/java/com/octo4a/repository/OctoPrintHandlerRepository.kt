@@ -130,6 +130,7 @@ class OctoPrintHandlerRepositoryImpl(
                     logger.log { "No bootstrap detected, proceeding with installation" }
                     _serverState.emit(ServerStatus.DownloadingBootstrap)
                     bootstrapRepository.downloadBootstrap()
+                    bootstrapRepository.installBundledProot()
                     _serverState.emit(ServerStatus.ExtractingBootstrap)
                     bootstrapRepository.extractBootstrap()
                     finishSetup()
@@ -138,6 +139,8 @@ class OctoPrintHandlerRepositoryImpl(
                     startOctoPrint()
                     logger.log { "Dependencies installed" }
                 } else {
+                    // Also updates installs made before proot was bundled, or by an older app version
+                    bootstrapRepository.installBundledProot()
                     if (!isSetupComplete) {
                         // A previous installation was interrupted after extracting the bootstrap
                         logger.log { "Bootstrap setup was not completed, finishing it" }

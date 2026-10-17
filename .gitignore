@@ -5,6 +5,8 @@ app/build
 app/.gradle
 app/.gradle/*
 app/app/src/main/jniLibs/*
+# Patched proot bundled in the APK (built by proot/build-proot-aarch64.sh)
+!app/app/src/main/jniLibs/arm64-v8a/
 .gradle
 .DS_STORE
 *.class
@@ -118,3 +120,6 @@ coverage/
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
+
+# Sources and intermediates of proot/build-proot-aarch64.sh
+proot/build/

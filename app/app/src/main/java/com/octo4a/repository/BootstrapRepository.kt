@@ -32,6 +32,7 @@ interface BootstrapRepository {
     suspend fun extractBootstrap()
     suspend fun setupBootstrap()
     fun markSetupComplete()
+    fun installBundledProot()
     fun runCommand(
         command: String,
         prooted: Boolean = true,
@@ -317,5 +318,43 @@ class BootstrapRepositoryImpl(
 
     override fun markSetupComplete() {
         File(SETUP_MARKER_PATH).createNewFile()
+    }
+
+    /**
+     * Replaces the bootstrap's proot and loader with the patched builds shipped in the APK
+     * (jniLibs), which work with tagged pointers on Android 11+. Architectures without a
+     * bundled build keep the bootstrap's own binaries.
+     */
+    override fun installBundledProot() {
+        if (!File("$PREFIX_PATH/bin").isDirectory) {
+            return
+        }
+
+        val libDir = context.applicationInfo.nativeLibraryDir
+        val bundledFiles = listOf(
+            "libproot.so" to "bin/proot",
+            "libproot-loader.so" to "libexec/proot/loader"
+        )
+
+        for ((libName, target) in bundledFiles) {
+            val source = File(libDir, libName)
+            if (!source.isFile) {
+                continue
+            }
+
+            val dest = File(PREFIX_PATH, target)
+            if (dest.isFile && dest.length() == source.length() && dest.readBytes().contentEquals(source.readBytes())) {
+                continue
+            }
+
+            logger.log(this) { "Installing bundled $target" }
+            // Write next to the target and rename, so a running proot isn't affected
+            val tmp = File("${dest.path}.tmp")
+            source.copyTo(tmp, overwrite = true)
+            tmp.setExecutable(true, false)
+            if (!tmp.renameTo(dest)) {
+                throw RuntimeException("Unable to install bundled $target")
+            }
+        }
     }
 }

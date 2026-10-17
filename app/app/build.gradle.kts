@@ -29,6 +29,9 @@ android {
     packagingOptions {
         jniLibs {
             pickFirsts += setOf("**/*.so")
+            // Patched proot executables (see /proot); extracted on install so they can be copied into the bootstrap
+            useLegacyPackaging = true
+            keepDebugSymbols += setOf("**/libproot.so", "**/libproot-loader.so")
         }
         resources {
             pickFirsts += setOf("META-INF/INDEX.LIST", "META-INF/io.netty.versions.properties")

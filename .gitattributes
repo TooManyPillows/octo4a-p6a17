@@ -1,0 +1,3 @@
+# The proot build script runs in bash and the patch is applied with git apply; keep both LF on Windows
+proot/*.sh text eol=lf
+proot/*.patch text eol=lf
